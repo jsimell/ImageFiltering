@@ -3,6 +3,8 @@ from PIL import Image
 import io
 import filters
 
+# NOTE: The app can be run by running `streamlit run app.py` in the terminal, which should open it in the browser automatically.
+
 # ---------- Configuration ----------
 st.set_page_config(layout="wide")
 
@@ -127,8 +129,9 @@ else:
         # These define what the user can change for each filter in the UI, and are passed to the filter functions in filters.py when "Apply Filter" is pressed.
         # NOTE: I just added some initial parameters for demonstration that can be changed to what is needed for your filters
         if filter_choice == "Sharpness":
-            params["strength"] = st.slider("Strength", 0.0, 2.0, 1.0)
-            params["kernel_size"] = st.slider("Kernel size (odd integer)", 1, 15, 3, step=2)
+            slider = st.slider("Strength", 1.0, 5.99, 1.0)
+            # Map the values "backwards" and with no negative values, so that the slider is more user friendly
+            params["strength"] = 6.0 - slider
 
         elif filter_choice == "Selective Colour":
             params["color"] = st.color_picker("Pick a target color", "#838383")
