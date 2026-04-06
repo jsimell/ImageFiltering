@@ -39,8 +39,74 @@ def sharpness(image, params):
     
 
 def selective_colour(image, params):
-    # IMPLEMENT
-    pass
+    # convert image
+    img = np.array(image.convert("RGB"))
+    # image in BGR
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    # image in HSV
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+    # parameters
+    # NOTE: the tolerance should take values from 0.0 to 30.0, initial value 5.0
+    #       and the initial color could be red (#ff0000)
+    #
+    # Also, it would be best if the user would have a simple slider to choose
+    # only the hue of the color and not the saturation/value, in order to only work 
+    # with fully saturated, clear colors, since the function chooses the colors 
+    # to maintain based only on their hue.
+    # (the target color still in hexadecimal, like now)
+    
+    color_hex = params.get("color", "ff0000")
+    tolerance = params.get("tolerance", 5.0)
+
+    # convert color_hex from hexadecimal to rgb
+    color_hex = color_hex.lstrip('#')
+    r = int(color_hex[0:2], 16)
+    g = int(color_hex[2:4], 16)
+    b = int(color_hex[4:6], 16)
+
+    # convert to bgr and hsv color
+    color_bgr = np.uint8([[[b, g, r]]])
+    color_hsv = cv2.cvtColor(color_bgr, cv2.COLOR_BGR2HSV)
+
+    target_hue = color_hsv[0][0][0]
+
+    h, s, v = cv2.split(hsv)
+
+    # loops for pixel-by-pixel iteration
+    rows, cols, _ = img.shape
+    for i in range(rows):
+        for j in range(cols):
+            # hue saturation and value of the pixel
+            hue = h[i,j]
+            sat = s[i,j]
+            val = v[i,j]
+
+            # check if the pixel's hue is within the tolerance to the target hue
+            
+            # in case of being near red hues which are at the ends of the spectrum (h~0 or h~180)
+            if target_hue < tolerance:
+                in_range = ( (hue <= target_hue + tolerance) or (hue >= 180 - tolerance + target_hue) )
+            elif target_hue > 180 - tolerance:
+                in_range = ( (hue >= target_hue - tolerance) or (hue <= + tolerance + target_hue -180) )
+            # not at the ends of the spectrum
+            else:
+                in_range = ( hue <= target_hue + tolerance and hue >= target_hue - tolerance)
+
+            # check if NOT within the above range and NOT within a saturation and value limit
+            if not (in_range and  sat > 50 and val > 50):
+                # convert to grayscale
+                pixel = img[i,j]
+                B = float(pixel[0])
+                G = float(pixel[1])
+                R = float(pixel[2])
+                gray_val = 0.299*R + 0.587*G + 0.114*B
+                img[i,j] = [gray_val, gray_val, gray_val]
+
+    # convert image back to RGB
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+    return Image.fromarray(img)
 
 def gaussian_blur(image, params):
     # IMPLEMENT
