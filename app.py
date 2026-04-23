@@ -1,4 +1,7 @@
+import uuid
+
 import streamlit as st
+import colorsys
 from PIL import Image
 import io
 import filters
@@ -13,10 +16,8 @@ if "image" not in st.session_state:
     st.session_state.image = None
 if "filtered_image" not in st.session_state:
     st.session_state.filtered_image = None
-if "applied_filter_choice" not in st.session_state:
-    st.session_state.applied_filter_choice = "None"
-if "applied_params" not in st.session_state:
-    st.session_state.applied_params = {}
+if "applied_filters" not in st.session_state:
+    st.session_state.applied_filters = []
 
 def get_download_bytes(image):
     buffer = io.BytesIO()
@@ -36,13 +37,42 @@ def apply_filter(image, filter_name, params):
     elif case == "selective colour":
         return filters.selective_colour(image, params)
 
-    elif case == "gaussian blur":
-        return filters.gaussian_blur(image, params)
-    
+    elif case == "cartoon":
+        return filters.cartoon(image, params)
+        
     elif case == "vintage film":
         return filters.vintage_film(image, params)
+    
+    elif case == "bilateral":
+        return filters.bilateral(image, params)
+
+    elif case == "pencil sketch":
+        return filters.pencil_sketch(image, params)
 
     return image
+
+# Applies the selected filters to the image in the UI
+def apply_selected_filters():
+    result = st.session_state.image.copy()
+    for filter_item in st.session_state.applied_filters:
+        result = apply_filter(result, filter_item["name"], filter_item["params"])
+    st.session_state.filtered_image = result
+
+
+def update_filters_with_spinner(spinner_placeholder):
+    _, center_col, _ = spinner_placeholder.columns([1, 2, 1])
+    with center_col:
+        with st.spinner("Updating filters...", width="stretch"):
+            apply_selected_filters()
+
+    spinner_placeholder.empty()
+
+
+def get_applied_filter(filter_name):
+    for filter_item in st.session_state.applied_filters:
+        if filter_item["name"] == filter_name:
+            return filter_item
+    return None
 
 
 # ---------- View 1: Starting View ----------
@@ -61,8 +91,7 @@ if st.session_state.image is None:
         if uploaded_file is not None:
             st.session_state.image = Image.open(uploaded_file)
             st.session_state.filtered_image = st.session_state.image.copy()
-            st.session_state.applied_filter_choice = "None"
-            st.session_state.applied_params = {}
+            st.session_state.applied_filters = []
             st.rerun()
 
 
@@ -72,7 +101,8 @@ else:
     if st.session_state.filtered_image is None:
         st.session_state.filtered_image = st.session_state.image.copy()
 
-    col_left, col_middle, col_right = st.columns([2, 2, 1])
+    col_left, col_middle, col_right = st.columns([1.75, 1.75, 1])
+    should_rerun = False
 
     filter_choice = "None"
     params = {}
@@ -92,8 +122,7 @@ else:
             if st.button("Change image"):
                 st.session_state.image = None
                 st.session_state.filtered_image = None
-                st.session_state.applied_filter_choice = "None"
-                st.session_state.applied_params = {}
+                st.session_state.applied_filters = []
                 st.rerun()
 
     # ---- MIDDLE COLUMN: Filtered image preview ----
@@ -117,50 +146,125 @@ else:
 
     # ---- RIGHT COLUMN: Filter controls ----
     with col_right:
+        st.subheader("Current Filters", divider="gray")
+        current_filters_spinner = st.empty()
+        if not st.session_state.applied_filters:
+            st.markdown("<p style='text-align: center;'>None.</p>", unsafe_allow_html=True)
+        else:
+            for f in st.session_state.applied_filters:
+                st.markdown(f"- **{f['name']}** with parameters: {f['params']}")
+                # For aligning the Remove button to the center
+                _, button_col, _ = st.columns([0.75, 1, 0.75])
+                # Button for removing the filter from the applied filters list
+                with button_col:
+                    if st.button("Remove", key=f"remove_{f['id']}", type="secondary", use_container_width=True):
+                        st.session_state.applied_filters.remove(f)
+                        update_filters_with_spinner(current_filters_spinner)
+                        should_rerun = True
+                        break
 
-        st.subheader("Filter Settings")
+        st.write("") # Add some spacing
+        st.subheader("Apply/Modify Filters", divider="gray")
 
         filter_choice = st.selectbox(
             "Choose filter",
-            ["None", "Sharpness", "Selective Colour", "Gaussian Blur", "Vintage Film"]
+            ["None", "Sharpness", "Selective Colour", "Cartoon", "Bilateral", "Vintage Film", "Pencil Sketch"],
+            key="new_filter_choice",
         )
 
         # Dynamic parameters depending on filter.
         # These define what the user can change for each filter in the UI, and are passed to the filter functions in filters.py when "Apply Filter" is pressed.
         # NOTE: I just added some initial parameters for demonstration that can be changed to what is needed for your filters
         if filter_choice == "Sharpness":
-            slider = st.slider("Strength", 1.0, 5.99, 1.0)
-            # Map the values "backwards" and with no negative values, so that the slider is more user friendly
-            params["strength"] = 6.0 - slider
+            slider = st.slider("Strength", 1.0, 5.99, 1.0, key="sharpness_strength")
+            params["strength"] = slider
 
         elif filter_choice == "Selective Colour":
-            params["color"] = st.color_picker("Pick a target color", "#838383")
-            params["tolerance"] = st.slider("Tolerance", 0.0, 255.0, 10.0)
+            params["tolerance"] = st.slider("Tolerance", 0, 30, 5, key="selective_tolerance")
+            hue = st.slider("Target color hue", 0.00, 1.00, 0.00, step=0.01, key="selective_hue")
+            # Display a color gradient block below the slider to help users choose the hue
+            st.markdown(
+                """
+                <div style="
+                    width: 100%;
+                    height: 16px;
+                    margin-top: -3.28rem;
+                    z-index: -100;
+                    border-radius: 8px;
+                    border: 1px solid #ccc;
+                    background: linear-gradient(
+                        to right,
+                        #ff0000 0%,
+                        #ffff00 17%,
+                        #00ff00 33%,
+                        #00ffff 50%,
+                        #0000ff 67%,
+                        #ff00ff 83%,
+                        #ff0000 100%
+                    );
+                    margin-bottom: 0.75rem;
+                    pointer-events: none;
+                "></div>
+                """,
+                unsafe_allow_html=True,
+            )
 
-        elif filter_choice == "Gaussian Blur":
-            params["kernel_size"] = st.slider("Kernel size (odd integer)", 1, 15, 3, step=2)
+            r, g, b = colorsys.hsv_to_rgb(hue, 1, 1)
+            rgb = (int(r * 255), int(g * 255), int(b * 255))
+            params["color"] = '#%02x%02x%02x' % rgb
+
+            st.markdown(
+                f"""
+                  <div style="display: flex; flex-direction: row; gap: 1rem; align-items: center; justify-content: space-between; margin-bottom: 2rem; margin-top: -1rem;">
+                    <p style="margin: 0;">Selected hue: <code style="color: white">{params["color"]}</code></p>
+                    <div style="background-color: {params["color"]}; height: 40px; width: 40px; border-radius: 8px;"></div>
+                  </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        elif filter_choice == "Cartoon":
+            params["param1"] = st.slider("Parameter name", 0.0, 10.0, 5.0, key="cartoon_param1")
+
+        elif filter_choice == "Bilateral":
+            params["param1"] = st.slider("Parameter name", 0.0, 10.0, 5.0, key="bilateral_param1")
 
         elif filter_choice == "Vintage Film":
-            params["param1"] = st.slider("Parameter name", 0.0, 10.0, 5.0)
+            params["param1"] = st.slider("Parameter name", 0.0, 10.0, 5.0, key="vintage_param1")
 
-        # For aligning the Apply Filter button
-        _, button_col, _ = st.columns([0.75, 1, 0.75])
+        elif filter_choice == "Pencil Sketch":
+            params["intensity"] = st.slider("Sketch intensity", 1, 5, 3, key="pencil_intensity")
 
-        with button_col:
-            if st.button("Apply Filter"):
-                st.session_state.filtered_image = apply_filter(
-                    st.session_state.image.copy(),
-                    filter_choice,
-                    params,
-                )
-                st.session_state.applied_filter_choice = filter_choice
-                st.session_state.applied_params = params.copy()
-                st.rerun()
+        existing_filter = get_applied_filter(filter_choice) if filter_choice != "None" else None
+
+        if filter_choice != "None":
+            # If the filter has already been applied, the button should serve as a parameter update button
+            action_label = "Modify Filter" if existing_filter is not None else "Apply Filter"
+
+            # For aligning the Apply Filter button
+            _, button_col, _ = st.columns([0.5, 2, 0.5])
+
+            with button_col:
+                if st.button(action_label, type="primary", use_container_width=True, key="apply_new_filter"):
+                    if existing_filter is not None:
+                        existing_filter["params"] = params.copy()
+                    else:
+                        st.session_state.applied_filters.append({"id": str(uuid.uuid4()), "name": filter_choice, "params": params.copy()})
+                    update_filters_with_spinner(current_filters_spinner)
+                    st.rerun()
 
         has_unapplied_changes = (
-            filter_choice != st.session_state.applied_filter_choice
-            or params != st.session_state.applied_params
+            # Check if current filter is in applied filters list with the selected parameters
+            filter_choice != "None"
+            and (existing_filter is None or existing_filter["params"] != params)
         )
 
         if has_unapplied_changes:
-            st.info("Press 'Apply Filter' to see changes in the filtered image.", icon=":material/info:")
+            if existing_filter is not None:
+                st.info("Press 'Modify Filter' to modify the parameters of the applied filter.", icon=":material/info:")
+            else:
+                st.info("Press 'Apply Filter' to add the filter to the applied filters list.", icon=":material/info:")
+
+        if should_rerun:
+            st.rerun()
+
