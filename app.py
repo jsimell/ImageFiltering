@@ -230,16 +230,10 @@ else:
             params["param1"] = st.slider("Parameter name", 0.0, 10.0, 5.0, key="bilateral_param1")
 
         elif filter_choice == "Vintage Film":
-            params["param1"] = st.slider("Parameter name", 0.0, 10.0, 5.0, key="vintage_param1")
-
-        elif filter_choice == "Pencil Sketch":
-            params["intensity"] = st.slider("Sketch intensity", 1, 5, 3, key="pencil_intensity")
-
-        existing_filter = get_applied_filter(filter_choice) if filter_choice != "None" else None
-
-        if filter_choice != "None":
-            # If the filter has already been applied, the button should serve as a parameter update button
-            action_label = "Modify Filter" if existing_filter is not None else "Apply Filter"
+            params["contrast"] = st.slider("Contrast", 0.4, 1.2, 0.75, 0.01)
+            params["noise_amount"] = st.slider("Film Grain", 0.0, 0.2, 0.05, 0.005)
+            params["warmth"] = st.slider("Warmth", 0.0, 0.6, 0.25, 0.01)
+            params["warm_opacity"] = st.slider("Warm Mask Opacity", 0.0, 0.6, 0.2, 0.01)
 
             # For aligning the Apply Filter button
             _, button_col, _ = st.columns([0.5, 2, 0.5])

@@ -119,78 +119,47 @@ def bilateral(image, params):
     pass
 
 def vintage_film(image, params):
-    # IMPLEMENT
-    pass
+    # convert image to numpy RGB float in [0, 1]
+    img = np.array(image).astype(np.float32) / 255.0
 
-def pencil_sketch(image, params):
-    src = np.array(image)
-    intensity = int(params.get("intensity", 3))
-    intensity = max(1, min(intensity, 5))
+    # parameter defaults
+    # Keep backward compatibility with current UI ("param1" in [0, 10]).
+    # intensity: 0 -> subtle effect, 1 -> stronger effect
+    intensity = np.clip(params.get("param1", 5.0) / 10.0, 0.0, 1.0)
 
-    # We use an internal mapping that maps the user-friendly intensity value (1-5) to actual 
-    # parameter values for kernel size, sigma, and scale.
-    intensity_mapping = {
-        1: {"kernel_size": 3, "sigma": 0.8, "scale": 192},
-        2: {"kernel_size": 5, "sigma": 1.2, "scale": 208},
-        3: {"kernel_size": 7, "sigma": 1.8, "scale": 224},
-        4: {"kernel_size": 9, "sigma": 2.4, "scale": 240},
-        5: {"kernel_size": 11, "sigma": 3.0, "scale": 255},
-    }
+    contrast = params.get("contrast", 1.0 - 0.35 * intensity)
+    noise_amount = params.get("noise_amount", 0.015 + 0.045 * intensity)
+    warmth = params.get("warmth", 0.12 + 0.23 * intensity)
+    warm_opacity = params.get("warm_opacity", 0.08 + 0.27 * intensity)
 
-    kernel_size = intensity_mapping[intensity]["kernel_size"]
-    sigma = intensity_mapping[intensity]["sigma"]
-    scale = intensity_mapping[intensity]["scale"]
+    contrast = np.clip(contrast, 0.4, 1.2)
+    noise_amount = np.clip(noise_amount, 0.0, 0.2)
+    warmth = np.clip(warmth, 0.0, 0.6)
+    warm_opacity = np.clip(warm_opacity, 0.0, 0.6)
 
+    # 1) lower contrast around midpoint 0.5
+    vintage = (img - 0.5) * contrast + 0.5
 
-    # Convert the image to a grayscale openCV image (if it's not already in grayscale)
-    if not len(src.shape) == 2: # if the image is not already grayscale
-        grayscale = cv2.cvtColor(src, cv2.COLOR_RGB2GRAY)
-    else:
-        grayscale = src
+    # 2) warm tone shift (more red/green, less blue)
+    # RGB channel gains
+    warm_gain = np.array([1.0 + warmth, 1.0 + 0.5 * warmth, 1.0 - 0.7 * warmth], dtype=np.float32)
+    warm_shifted = np.clip(vintage * warm_gain, 0.0, 1.0)
 
-    # Convert the grayscale image to inverted grayscale
-    inverted = 255.0 - grayscale.astype(np.float32)
+    # 3) warm color mask overlay
+    warm_mask_color = np.array([245.0, 210.0, 150.0], dtype=np.float32) / np.float32(255.0)
+    warm_mask = np.ones_like(warm_shifted, dtype=np.float32) * warm_mask_color
+    alpha = np.float32(warm_opacity)
+    vintage = np.clip(
+        warm_shifted.astype(np.float32) * (np.float32(1.0) - alpha) + warm_mask * alpha,
+        0.0,
+        1.0,
+    )
+
+    # 4) film grain noise
+    noise = np.random.normal(0.0, noise_amount, vintage.shape).astype(np.float32)
+    vintage = np.clip(vintage + noise, 0.0, 1.0)
+
+    # convert back to PIL image
+    vintage = (vintage * 255.0).astype(np.uint8)
     
-    # Apply a Gaussian blur to the inverted grayscale image
-    # Here we use a separate pass for horizontal and vertical blurring for efficiency
-    kernel_1D = np.zeros((kernel_size), dtype=np.float32)
-    for i in range(kernel_size):
-        kernel_1D[i] = np.exp(-0.5 * ((i - kernel_size // 2) / sigma) ** 2)
-    kernel_1D /= np.sum(kernel_1D) # Normalize the kernel
-
-    # Horizontal pass
-    rows, cols = grayscale.shape
-    blurred_horizontal = np.zeros_like(inverted, dtype=np.float32)
-    for i in range(rows):
-        for j in range(cols):
-            sum = 0
-            for n in range(kernel_size):
-                p = j - kernel_size // 2 + n
-                # Use edge padding for out-of-bounds indices
-                p = max(0, min(p, cols - 1))
-                sum += inverted[i, p] * kernel_1D[n]
-            blurred_horizontal[i, j] = sum
-
-    # Vertical pass
-    blurred = np.zeros_like(blurred_horizontal, dtype=np.float32)
-    for i in range(rows):
-        for j in range(cols):
-            sum = 0
-            for n in range(kernel_size):
-                p = i - kernel_size // 2 + n
-                # Use edge padding for out-of-bounds indices
-                p = max(0, min(p, rows - 1))
-                sum += blurred_horizontal[p, j] * kernel_1D[n]
-            blurred[i, j] = sum
-
-    # Invert image back
-    inverted_back = np.clip(255.0 - blurred, 0.1, 255.0)
-
-    # Perform element-wise division between the inverted back image and the original grayscale image
-    sketch = np.zeros_like(inverted_back, dtype=np.float32)
-    for i in range(rows):
-        for j in range(cols):
-            sketch[i, j] = min(255, (float(grayscale[i, j]) * scale) / inverted_back[i, j])
-
-    return Image.fromarray(sketch.astype(np.uint8))
-
+    return Image.fromarray(vintage)
