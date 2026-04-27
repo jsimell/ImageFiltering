@@ -115,8 +115,53 @@ def cartoon(image, params):
     pass
 
 def bilateral(image, params):
-    # IMPLEMENT
-    pass
+    # convert image to float RGB in [0, 1]
+    img = np.array(image.convert("RGB"), dtype=np.float32) / 255.0
+
+    # Backward-compatible mapping from existing UI slider param1 (0..10)
+    intensity = np.clip(params.get("param1", 5.0) / 10.0, 0.0, 1.0)
+    radius = int(params.get("radius", 2 + round(3 * intensity)))
+    sigma_spatial = float(params.get("sigma_spatial", 2.0 + 4.0 * intensity))
+    sigma_range = float(params.get("sigma_range", 0.05 + 0.20 * intensity))
+
+    radius = max(1, radius)
+    sigma_spatial = max(1e-6, sigma_spatial)
+    sigma_range = max(1e-6, sigma_range)
+
+    height, width, _ = img.shape
+    output = np.zeros_like(img, dtype=np.float32)
+
+    # reflect padding for border handling
+    padded = np.pad(img, ((radius, radius), (radius, radius), (0, 0)), mode="reflect")
+
+    # precompute spatial gaussian weights
+    offsets = np.arange(-radius, radius + 1, dtype=np.float32)
+    yy, xx = np.meshgrid(offsets, offsets, indexing="ij")
+    spatial_weights = np.exp(-(xx * xx + yy * yy) / (2.0 * sigma_spatial * sigma_spatial)).astype(np.float32)
+
+    # bilateral filter loop
+    for row in range(height):
+        for col in range(width):
+            patch = padded[row:row + 2 * radius + 1, col:col + 2 * radius + 1, :]
+            center = padded[row + radius, col + radius, :]
+
+            # color distance in RGB
+            diff = patch - center
+            dist2 = np.sum(diff * diff, axis=2)
+            range_weights = np.exp(-dist2 / (2.0 * sigma_range * sigma_range)).astype(np.float32)
+
+            weights = spatial_weights * range_weights
+            weight_sum = np.sum(weights)
+
+            if weight_sum > 1e-12:
+                output[row, col, :] = np.sum(patch * weights[:, :, None], axis=(0, 1)) / weight_sum
+            else:
+                output[row, col, :] = center
+
+    output = np.clip(output, 0.0, 1.0)
+    output = (output * 255.0).astype(np.uint8)
+
+    return Image.fromarray(output)
 
 def vintage_film(image, params):
     # convert image to numpy RGB float in [0, 1]
