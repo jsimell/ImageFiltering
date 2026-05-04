@@ -230,9 +230,10 @@ else:
 
         elif filter_choice == "Vintage Film":
             params["contrast"] = st.slider("Contrast", 0.4, 1.2, 0.75, 0.01)
-            params["noise_amount"] = st.slider("Film Grain", 0.0, 0.2, 0.05, 0.005)
             params["warmth"] = st.slider("Warmth", 0.0, 0.6, 0.25, 0.01)
-            params["warm_opacity"] = st.slider("Warm Mask Opacity", 0.0, 0.6, 0.2, 0.01)
+            params["noise_amount"] = st.slider("Film Grain", 0.0, 0.2, 0.05, 0.005)
+            params["noise_clip"] = st.slider("Noise Intensity", 0.0, 1.0, 0.5, 0.01)
+            # params["grain_scale"] = st.slider("Grain Scale", 1.0, 10.0, 5.0, 0.1)
 
         elif filter_choice == "Pencil Sketch":
             params["intensity"] = st.slider("Sketch intensity", 1, 5, 3, key="pencil_intensity")

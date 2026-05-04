@@ -171,44 +171,38 @@ def bilateral(image, params):
 
 
 def vintage_film(image, params):
-    # convert image to numpy RGB float in [0, 1]
-    img = np.array(image).astype(np.float32) / 255.0
+    # convert image to RGB (handle grayscale images safely)
+    img = np.array(image.convert("RGB")).astype(np.float32) / 255.0
 
-    # parameter defaults
-    # Keep backward compatibility with current UI ("param1" in [0, 10]).
-    # intensity: 0 -> subtle effect, 1 -> stronger effect
-    intensity = np.clip(params.get("param1", 5.0) / 10.0, 0.0, 1.0)
+    # get parameters from UI
+    contrast = params.get("contrast", 0.75)
+    warmth = params.get("warmth", 0.25)
+    noise_amount = params.get("noise_amount", 0.05)
+    noise_clip = float(params.get("noise_clip", 1.5))
 
-    contrast = params.get("contrast", 1.0 - 0.35 * intensity)
-    noise_amount = params.get("noise_amount", 0.015 + 0.045 * intensity)
-    warmth = params.get("warmth", 0.12 + 0.23 * intensity)
-    warm_opacity = params.get("warm_opacity", 0.08 + 0.27 * intensity)
-
+    # ensure parameters are within valid ranges
     contrast = np.clip(contrast, 0.4, 1.2)
     noise_amount = np.clip(noise_amount, 0.0, 0.2)
     warmth = np.clip(warmth, 0.0, 0.6)
-    warm_opacity = np.clip(warm_opacity, 0.0, 0.6)
+    noise_clip = np.clip(noise_clip, 0.0, 1.0)
 
-    # 1) lower contrast around midpoint 0.5
+    # lower contrast around midpoint 0.5
     vintage = (img - 0.5) * contrast + 0.5
+    # lighten midtones to compensate for contrast reduction
+    vintage = np.clip(vintage * 1.15, 0.0, 1.0)
 
-    # 2) warm tone shift (more red/green, less blue)
-    # RGB channel gains
-    warm_gain = np.array([1.0 + warmth, 1.0 + 0.5 * warmth, 1.0 - 0.7 * warmth], dtype=np.float32)
-    warm_shifted = np.clip(vintage * warm_gain, 0.0, 1.0)
+    # warm tone shift (more red and green, less blue)
+    warm_gain = np.array([1.0 + warmth, 1.0 + 0.2 * warmth, 1.0], dtype=np.float32)
+    vintage = np.clip(vintage * warm_gain, 0.0, 1.0)
 
-    # 3) warm color mask overlay
-    warm_mask_color = np.array([245.0, 210.0, 150.0], dtype=np.float32) / np.float32(255.0)
-    warm_mask = np.ones_like(warm_shifted, dtype=np.float32) * warm_mask_color
-    alpha = np.float32(warm_opacity)
-    vintage = np.clip(
-        warm_shifted.astype(np.float32) * (np.float32(1.0) - alpha) + warm_mask * alpha,
-        0.0,
-        1.0,
-    )
-
-    # 4) film grain noise
+    # add gaussian grain noise
     noise = np.random.normal(0.0, noise_amount, vintage.shape).astype(np.float32)
+
+    # clip extremes so pixels don't jump to unnatural values
+    clip_val = noise_clip * noise_amount
+    noise = np.clip(noise, -clip_val, clip_val)
+
+    # add noise to the image
     vintage = np.clip(vintage + noise, 0.0, 1.0)
 
     # convert back to PIL image
