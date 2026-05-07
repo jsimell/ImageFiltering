@@ -112,8 +112,95 @@ def selective_colour(image, params):
 
 
 def cartoon(image, params):
-    # IMPLEMENT
-    pass
+    # convert image
+    img = np.array(image.convert("RGB"))
+
+    # parameters
+    # NOTE:   edges intensity takes values from 20 to 100 where 
+    #         100 is the least intense and 20 the most, so so the slider
+    #         in the GUI is "backwards" to be more user friendly. 
+    levels = params.get("color_levels", 3)
+    
+    ui_edges_intensity = params.get("edges", 50)
+    # convert the "user-friendly" slider to the actual values
+    edges_intensity = 120 - ui_edges_intensity
+    
+    # ----- blur -----
+    blurred = cv2.GaussianBlur(img, (3,3), 1.5)
+
+    # ----- edge detection -----
+    
+    # first, convert image to grayscale
+    rows, cols, _ = img.shape
+    gray = np.zeros((rows, cols), dtype=np.uint8)
+    
+    for i in range(rows):
+        for j in range(cols):
+            pixel = blurred[i,j]
+            B = float(pixel[0])
+            G = float(pixel[1])
+            R = float(pixel[2])
+            gray_val = 0.299*R + 0.587*G + 0.114*B
+            gray[i,j] = gray_val
+
+    # vertical edges
+    kernelGy = np.array([
+        [-1, 0, 1],
+        [-2, 0, 2],
+        [-1, 0, 1]
+    ])
+    # convolution
+    edge_vert = cv2.filter2D(gray, -1, kernelGy)
+    # normalisation
+    edge_vert = edge_vert / np.max(edge_vert)
+    edge_vert *= 255
+
+    # horizontal edges
+    kernelGx = np.array([
+        [-1, -2, -1],
+        [0, 0, 0],
+        [1, 2, 1]
+    ])
+    # convolution
+    edge_hor = cv2.filter2D(gray, -1, kernelGx)
+    # normalisation
+    edge_hor = edge_hor / np.max(edge_hor)
+    edge_hor *= 255
+
+    # all edges
+    edge = np.abs(edge_vert) + np.abs(edge_hor)
+    edge = edge.astype(np.uint8)
+    
+    # edges threshold
+    _, edge = cv2.threshold(edge, edges_intensity, 255, cv2.THRESH_BINARY)
+
+    # invert edges
+    edge = cv2.bitwise_not(edge)
+
+
+    # ----- color quantisation -----
+    color = np.zeros((rows, cols, 3), dtype=np.uint8)
+    # size of step
+    step = 255 // levels
+    # pixel-by-pixel loops for quantisation
+    for i in range (rows):
+        for j in range(cols):
+            r, g, b = blurred[i,j]
+            # quantisation
+            r = round(r / step) * step
+            g = round(g / step) * step
+            b = round(b / step) * step
+            
+            color[i,j] = [r,g,b]
+    # normalisation
+    color = color / np.max(color)
+    color *= 255
+    color = color.astype(np.uint8)
+    
+    # add the edges to the final image
+    cartoon = cv2.bitwise_and(color, color, mask=edge)
+    
+    return Image.fromarray(cartoon)
 
 
 def bilateral(image, params):
