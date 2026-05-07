@@ -137,9 +137,9 @@ def cartoon(image, params):
     for i in range(rows):
         for j in range(cols):
             pixel = blurred[i,j]
-            B = float(pixel[0])
+            R = float(pixel[0])
             G = float(pixel[1])
-            R = float(pixel[2])
+            B = float(pixel[2])
             gray_val = 0.299*R + 0.587*G + 0.114*B
             gray[i,j] = gray_val
 
@@ -150,10 +150,10 @@ def cartoon(image, params):
         [-1, 0, 1]
     ])
     # convolution
-    edge_vert = cv2.filter2D(gray, -1, kernelGy)
+    edge_vert = cv2.filter2D(gray, cv2.CV_32F, kernelGy)
     # normalisation
-    edge_vert = edge_vert / np.max(edge_vert)
-    edge_vert *= 255
+    if np.max(np.abs(edge_vert)) > 0:
+        edge_vert = edge_vert / np.max(np.abs(edge_vert)) * 255
 
     # horizontal edges
     kernelGx = np.array([
@@ -162,14 +162,14 @@ def cartoon(image, params):
         [1, 2, 1]
     ])
     # convolution
-    edge_hor = cv2.filter2D(gray, -1, kernelGx)
+    edge_hor = cv2.filter2D(gray, cv2.CV_32F, kernelGx)
     # normalisation
-    edge_hor = edge_hor / np.max(edge_hor)
-    edge_hor *= 255
+    if np.max(np.abs(edge_hor)) > 0:
+        edge_hor = edge_hor / np.max(np.abs(edge_hor)) * 255
 
     # all edges
     edge = np.abs(edge_vert) + np.abs(edge_hor)
-    edge = edge.astype(np.uint8)
+    edge = np.clip(edge, 0, 255).astype(np.uint8)
     
     # edges threshold
     _, edge = cv2.threshold(edge, edges_intensity, 255, cv2.THRESH_BINARY)
@@ -192,10 +192,8 @@ def cartoon(image, params):
             b = round(b / step) * step
             
             color[i,j] = [r,g,b]
-    # normalisation
-    color = color / np.max(color)
-    color *= 255
-    color = color.astype(np.uint8)
+            
+    color = np.clip(color, 0, 255).astype(np.uint8)
     
     # add the edges to the final image
     cartoon = cv2.bitwise_and(color, color, mask=edge)
