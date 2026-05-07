@@ -222,6 +222,10 @@ else:
                 """,
                 unsafe_allow_html=True,
             )
+
+        elif filter_choice == "Cartoon":
+            params["color_levels"] = st.slider("Color Levels", 3, 8, 4)
+            params["edges"] = st.slider("Edges Intensity", 20, 100, 50)
             
         elif filter_choice == "Bilateral":
             params["radius"] = st.slider("Radius", 1, 7, 4, step=1)
