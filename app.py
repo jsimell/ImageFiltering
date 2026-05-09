@@ -30,10 +30,7 @@ def get_download_bytes(image):
 # Returns the filtered image
 def apply_filter(image, filter_name, params):
     case = filter_name.lower()
-    if case == "sharpness":
-        return filters.sharpness(image, params)
-
-    elif case == "selective colour":
+    if case == "selective colour":
         return filters.selective_colour(image, params)
 
     elif case == "cartoon":
@@ -168,18 +165,14 @@ else:
 
         filter_choice = st.selectbox(
             "Choose filter",
-            ["None", "Sharpness", "Selective Colour", "Cartoon", "Bilateral", "Vintage Film", "Pencil Sketch"],
+            ["None", "Selective Colour", "Cartoon", "Bilateral", "Vintage Film", "Pencil Sketch"],
             key="new_filter_choice",
         )
 
         # Dynamic parameters depending on filter.
         # These define what the user can change for each filter in the UI, and are passed to the filter functions in filters.py when "Apply Filter" is pressed.
         # NOTE: I just added some initial parameters for demonstration that can be changed to what is needed for your filters
-        if filter_choice == "Sharpness":
-            slider = st.slider("Strength", 1.0, 5.99, 1.0, key="sharpness_strength")
-            params["strength"] = slider
-
-        elif filter_choice == "Selective Colour":
+        if filter_choice == "Selective Colour":
             params["tolerance"] = st.slider("Tolerance", 0, 30, 5, key="selective_tolerance")
             hue = st.slider("Target color hue", 0.00, 1.00, 0.00, step=0.01, key="selective_hue")
             # Display a color gradient block below the slider to help users choose the hue
