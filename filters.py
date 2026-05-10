@@ -8,7 +8,7 @@ from PIL import Image
 ### The functions should return the filtered image.
 
 
-def selective_colour(image, params):
+def selective_colour(image, params):    # author: Elisavet Kouimtzidou
     # convert image
     img = np.array(image.convert("RGB"))
     # image in BGR
@@ -16,16 +16,7 @@ def selective_colour(image, params):
     # image in HSV
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
-    # parameters
-    # NOTE: the tolerance should take values from 0.0 to 30.0, initial value 5.0
-    #       and the initial color could be red (#ff0000)
-    #
-    # Also, it would be best if the user would have a simple slider to choose
-    # only the hue of the color and not the saturation/value, in order to only work 
-    # with fully saturated, clear colors, since the function chooses the colors 
-    # to maintain based only on their hue.
-    # (the target color still in hexadecimal, like now)
-    
+    # parameters    
     color_hex = params.get("color", "ff0000")
     tolerance = params.get("tolerance", 5.0)
 
@@ -79,7 +70,7 @@ def selective_colour(image, params):
     return Image.fromarray(img)
 
 
-def cartoon(image, params):
+def cartoon(image, params):    # author: Elisavet Kouimtzidou
     # convert image
     img = np.array(image.convert("RGB"))
 
@@ -169,7 +160,7 @@ def cartoon(image, params):
     return Image.fromarray(cartoon)
 
 
-def bilateral(image, params):
+def bilateral(image, params):    # author: Clara Schindler
     # convert image to float RGB in [0, 1]
     img = np.array(image.convert("RGB"), dtype=np.float32) / 255.0
 
@@ -223,7 +214,7 @@ def bilateral(image, params):
     return Image.fromarray(output)
 
 
-def vintage_film(image, params):
+def vintage_film(image, params):    # author: Clara Schindler
     # convert image to RGB (handle grayscale images safely)
     img = np.array(image.convert("RGB")).astype(np.float32) / 255.0
 
@@ -264,7 +255,7 @@ def vintage_film(image, params):
     return Image.fromarray(vintage)
 
 
-def pencil_sketch(image, params):
+def pencil_sketch(image, params):    # author: Jiri Simell
     src = np.array(image)
     intensity = int(params.get("intensity", 3))
     intensity = max(1, min(intensity, 5))
