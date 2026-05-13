@@ -165,13 +165,11 @@ def bilateral(image, params):    # author: Clara Schindler
     img = np.array(image.convert("RGB"), dtype=np.float32) / 255.0
 
     # get parameters from UI
-    intensity = np.clip(params.get("param1", 5.0) / 10.0, 0.0, 1.0)
-    radius = int(params.get("radius", 2 + round(3 * intensity)))
-    sigma_spatial = float(params.get("sigma_spatial", 2.0 + 4.0 * intensity))
-    sigma_range = float(params.get("sigma_range", 0.05 + 0.20 * intensity))
+    radius = 5
+    sigma_spatial = float(params.get("sigma_spatial", 5.0))
+    sigma_range = float(params.get("sigma_range", 0.15))
 
     # ensure parameters are within valid ranges
-    radius = max(1, radius)
     sigma_spatial = max(1e-6, sigma_spatial)
     sigma_range = max(1e-6, sigma_range)
 
