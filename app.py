@@ -221,7 +221,6 @@ else:
             params["edges"] = st.slider("Edges Intensity", 20, 100, 50)
             
         elif filter_choice == "Bilateral":
-            params["radius"] = st.slider("Radius", 1, 7, 4, step=1)
             params["sigma_spatial"] = st.slider("Sigma Spatial", 1.0, 12.0, 5.0, 0.1)
             params["sigma_range"] = st.slider("Sigma Range", 0.01, 0.4, 0.15, 0.01)
 
