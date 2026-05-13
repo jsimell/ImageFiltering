@@ -220,13 +220,12 @@ def vintage_film(image, params):    # author: Clara Schindler
     contrast = params.get("contrast", 0.75)
     warmth = params.get("warmth", 0.25)
     noise_amount = params.get("noise_amount", 0.05)
-    noise_clip = float(params.get("noise_clip", 1.5))
+    noise_clip = 0.45
 
     # ensure parameters are within valid ranges
     contrast = np.clip(contrast, 0.4, 1.2)
     noise_amount = np.clip(noise_amount, 0.0, 0.2)
     warmth = np.clip(warmth, 0.0, 0.6)
-    noise_clip = np.clip(noise_clip, 0.0, 1.0)
 
     # lower contrast around midpoint 0.5
     vintage = (img - 0.5) * contrast + 0.5
